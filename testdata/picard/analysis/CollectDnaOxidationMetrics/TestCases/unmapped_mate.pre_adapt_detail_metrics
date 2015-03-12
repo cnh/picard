@@ -1,0 +1,21 @@
+## htsjdk.samtools.metrics.StringHeader
+# picard.analysis.oxidation.CollectDnaOxidationMetrics INPUT=/Users/msooknah/Documents/gp_projects/picard-private/Picard-public/testdata/picard/analysis/CollectDnaOxidationMetrics/test.sam OUTPUT=/Users/msooknah/Documents/scratch/picardgroup/oxog/unit/tmp_output/unmapped_mate REFERENCE_SEQUENCE=/Users/msooknah/Documents/gp_projects/picard-private/Picard-public/testdata/picard/analysis/CollectDnaOxidationMetrics/test.fasta MINIMUM_INSERT_SIZE=0 MAXIMUM_INSERT_SIZE=0 CONTEXT_SIZE=0    MINIMUM_QUALITY_SCORE=20 MINIMUM_MAPPING_QUALITY=30 USE_OQ=true STOP_AFTER=9223372036854775807 VERBOSITY=INFO QUIET=false VALIDATION_STRINGENCY=STRICT COMPRESSION_LEVEL=5 MAX_RECORDS_IN_RAM=500000 CREATE_INDEX=false CREATE_MD5_FILE=false
+## htsjdk.samtools.metrics.StringHeader
+# Started on: Wed Mar 11 16:25:58 EDT 2015
+
+## METRICS CLASS	picard.analysis.oxidation.OxidationMetrics$PreAdaptDetailMetrics
+SAMPLE_ALIAS	LIBRARY	REF_BASE	ALT_BASE	CONTEXT	PRO_REF_BASES	PRO_ALT_BASES	CON_REF_BASES	CON_ALT_BASES	ERROR_RATE	QSCORE
+sample1	library1	A	C	A	31	0	38	0	0	100
+sample1	library1	A	G	A	31	0	38	0	0	100
+sample1	library1	A	T	A	31	0	38	0	0	100
+sample1	library1	C	A	C	33	0	16	11	0	100
+sample1	library1	C	G	C	33	0	16	0	0	100
+sample1	library1	C	T	C	33	8	16	8	0	100
+sample1	library1	G	A	G	16	8	33	8	0	100
+sample1	library1	G	C	G	16	0	33	0	0	100
+sample1	library1	G	T	G	16	11	33	0	0.183333	7.367586
+sample1	library1	T	A	T	38	0	31	0	0	100
+sample1	library1	T	C	T	38	0	31	0	0	100
+sample1	library1	T	G	T	38	0	31	0	0	100
+
+

@@ -5,8 +5,8 @@ import htsjdk.samtools.SAMRecord;
 import htsjdk.samtools.SamReader;
 import htsjdk.samtools.SamReaderFactory;
 import htsjdk.samtools.filter.DuplicateReadFilter;
+import htsjdk.samtools.filter.InsertSizeFilter;
 import htsjdk.samtools.filter.NotPrimaryAlignmentFilter;
-import htsjdk.samtools.filter.SamRecordFilter;
 import htsjdk.samtools.metrics.MetricBase;
 import htsjdk.samtools.metrics.MetricsFile;
 import htsjdk.samtools.reference.ReferenceSequenceFileWalker;
@@ -29,10 +29,10 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
+import static htsjdk.samtools.util.SequenceUtil.generateAllKmers;
 import static java.lang.Math.log10;
 
 /**
@@ -160,38 +160,6 @@ public class CollectOxoGMetrics extends CommandLineProgram {
         public double G_REF_OXO_ERROR_RATE;
         /** G_REF_OXO_ERROR_RATE expressed as a phred-scaled quality score. */
         public double G_REF_OXO_Q;
-    }
-
-    /**
-     * SAM filter for insert size range.
-     */
-    static class InsertSizeFilter implements SamRecordFilter {
-        final int minInsertSize;
-        final int maxInsertSize;
-
-        InsertSizeFilter(final int minInsertSize, final int maxInsertSize) {
-            this.minInsertSize = minInsertSize;
-            this.maxInsertSize = maxInsertSize;
-        }
-
-        @Override
-        public boolean filterOut(final SAMRecord rec) {
-            // Treat both parameters == 0 as not filtering
-            if (minInsertSize == 0 && maxInsertSize == 0) return false;
-
-            if (rec.getReadPairedFlag()) {
-                final int ins = Math.abs(rec.getInferredInsertSize());
-                return ins < minInsertSize || ins > maxInsertSize;
-            }
-
-            // If the read isn't paired and either min or max is specified filter it out
-            return minInsertSize != 0 || maxInsertSize != 0;
-        }
-
-        @Override
-        public boolean filterOut(final SAMRecord r1, final SAMRecord r2) {
-            return filterOut(r1) || filterOut(r2);
-        }
     }
 
     // Stock main method
@@ -336,43 +304,6 @@ public class CollectOxoGMetrics extends CommandLineProgram {
 
         log.info("Generated " + contexts.size() + " context strings.");
         return contexts;
-    }
-
-    /** Generates all possible kmers of length and returns them as byte[]s. */
-    private List<byte[]> generateAllKmers(final int length) {
-        final List<byte[]> sofar = new LinkedList<byte[]>();
-        final byte[] bases = {'A', 'C', 'G', 'T'};
-
-        if (sofar.size() == 0) {
-            sofar.add(new byte[length]);
-        }
-
-        while (true) {
-            final byte[] bs = sofar.remove(0);
-            final int indexOfNextBase = findIndexOfNextBase(bs);
-
-            if (indexOfNextBase == -1) {
-                sofar.add(bs);
-                break;
-            } else {
-                for (final byte b : bases) {
-                    final byte[] next = Arrays.copyOf(bs, bs.length);
-                    next[indexOfNextBase] = b;
-                    sofar.add(next);
-                }
-            }
-        }
-
-        return sofar;
-    }
-
-    /** Finds the first non-zero character in the array, or returns -1 if all are non-zero. */
-    private int findIndexOfNextBase(final byte[] bs) {
-        for (int i = 0; i < bs.length; ++i) {
-            if (bs[i] == 0) return i;
-        }
-
-        return -1;
     }
 
     /** A little class for counting alleles. */
