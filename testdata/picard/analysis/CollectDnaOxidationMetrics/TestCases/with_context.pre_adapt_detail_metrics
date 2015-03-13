@@ -1,7 +1,7 @@
 ## htsjdk.samtools.metrics.StringHeader
-# picard.analysis.oxidation.CollectDnaOxidationMetrics INPUT=/Users/msooknah/Documents/gp_projects/picard-private/Picard-public/testdata/picard/analysis/CollectDnaOxidationMetrics/test.sam OUTPUT=/Users/msooknah/Documents/scratch/picardgroup/oxog/unit/tmp_output/with_context REFERENCE_SEQUENCE=/Users/msooknah/Documents/gp_projects/picard-private/Picard-public/testdata/picard/analysis/CollectDnaOxidationMetrics/test.fasta MINIMUM_INSERT_SIZE=30 MAXIMUM_INSERT_SIZE=30 CONTEXT_SIZE=1    MINIMUM_QUALITY_SCORE=20 MINIMUM_MAPPING_QUALITY=30 USE_OQ=true STOP_AFTER=9223372036854775807 VERBOSITY=INFO QUIET=false VALIDATION_STRINGENCY=STRICT COMPRESSION_LEVEL=5 MAX_RECORDS_IN_RAM=500000 CREATE_INDEX=false CREATE_MD5_FILE=false
+# picard.analysis.oxidation.CollectDnaOxidationMetrics MINIMUM_INSERT_SIZE=30 MAXIMUM_INSERT_SIZE=30 CONTEXT_SIZE=1 INPUT=/Users/msooknah/Documents/gp_projects/picard-private/Picard-public/testdata/picard/analysis/CollectDnaOxidationMetrics/test.sam OUTPUT=/Users/msooknah/Documents/scratch/picardgroup/oxog/unit/tmp_output/with_context REFERENCE_SEQUENCE=/Users/msooknah/Documents/gp_projects/picard-private/Picard-public/testdata/picard/analysis/CollectDnaOxidationMetrics/test.fasta    MINIMUM_QUALITY_SCORE=20 MINIMUM_MAPPING_QUALITY=30 USE_OQ=true ASSUME_SORTED=true STOP_AFTER=0 VERBOSITY=INFO QUIET=false VALIDATION_STRINGENCY=STRICT COMPRESSION_LEVEL=5 MAX_RECORDS_IN_RAM=500000 CREATE_INDEX=false CREATE_MD5_FILE=false
 ## htsjdk.samtools.metrics.StringHeader
-# Started on: Wed Mar 11 16:25:58 EDT 2015
+# Started on: Fri Mar 13 11:33:09 EDT 2015
 
 ## METRICS CLASS	picard.analysis.oxidation.OxidationMetrics$PreAdaptDetailMetrics
 SAMPLE_ALIAS	LIBRARY	REF_BASE	ALT_BASE	CONTEXT	PRO_REF_BASES	PRO_ALT_BASES	CON_REF_BASES	CON_ALT_BASES	ERROR_RATE	QSCORE
@@ -18,8 +18,8 @@ sample1	library1	A	C	GAG	1	0	0	0	0	100
 sample1	library1	A	C	AAA	0	0	1	0	0	100
 sample1	library1	A	C	AAC	0	0	0	0	0	100
 sample1	library1	A	C	GAC	1	0	1	0	0	100
-sample1	library1	A	C	GAA	3	0	1	0	0	100
-sample1	library1	A	C	CAT	3	0	4	0	0	100
+sample1	library1	A	C	GAA	3	0	3	0	0	100
+sample1	library1	A	C	CAT	4	0	4	0	0	100
 sample1	library1	A	C	TAG	1	0	1	0	0	100
 sample1	library1	A	G	AAT	0	0	1	0	0	100
 sample1	library1	A	G	GAT	4	0	5	0	0	100
@@ -34,8 +34,8 @@ sample1	library1	A	G	GAG	1	0	0	0	0	100
 sample1	library1	A	G	AAA	0	0	1	0	0	100
 sample1	library1	A	G	AAC	0	0	0	0	0	100
 sample1	library1	A	G	GAC	1	0	1	0	0	100
-sample1	library1	A	G	GAA	3	0	1	0	0	100
-sample1	library1	A	G	CAT	3	0	4	0	0	100
+sample1	library1	A	G	GAA	3	0	3	0	0	100
+sample1	library1	A	G	CAT	4	0	4	0	0	100
 sample1	library1	A	G	TAG	1	0	1	0	0	100
 sample1	library1	A	T	AAT	0	0	1	0	0	100
 sample1	library1	A	T	GAT	4	0	5	0	0	100
@@ -50,8 +50,8 @@ sample1	library1	A	T	GAG	1	0	0	0	0	100
 sample1	library1	A	T	AAA	0	0	1	0	0	100
 sample1	library1	A	T	AAC	0	0	0	0	0	100
 sample1	library1	A	T	GAC	1	0	1	0	0	100
-sample1	library1	A	T	GAA	3	0	1	0	0	100
-sample1	library1	A	T	CAT	3	0	4	0	0	100
+sample1	library1	A	T	GAA	3	0	3	0	0	100
+sample1	library1	A	T	CAT	4	0	4	0	0	100
 sample1	library1	A	T	TAG	1	0	1	0	0	100
 sample1	library1	C	A	ACT	0	0	0	1	0	100
 sample1	library1	C	A	GCT	6	0	1	0	0	100
@@ -63,7 +63,7 @@ sample1	library1	C	A	CCG	0	0	0	0	0	100
 sample1	library1	C	A	GCG	2	0	3	1	0	100
 sample1	library1	C	A	ACC	1	0	0	0	0	100
 sample1	library1	C	A	TCG	3	0	2	1	0	100
-sample1	library1	C	A	ACG	3	0	2	1	0	100
+sample1	library1	C	A	ACG	3	0	3	1	0	100
 sample1	library1	C	A	TCA	3	0	2	1	0	100
 sample1	library1	C	A	GCC	2	0	0	1	0	100
 sample1	library1	C	A	TCC	0	0	0	0	0	100
@@ -79,7 +79,7 @@ sample1	library1	C	G	CCG	0	0	0	0	0	100
 sample1	library1	C	G	GCG	2	0	3	0	0	100
 sample1	library1	C	G	ACC	1	0	0	0	0	100
 sample1	library1	C	G	TCG	3	0	2	0	0	100
-sample1	library1	C	G	ACG	3	0	2	0	0	100
+sample1	library1	C	G	ACG	3	0	3	0	0	100
 sample1	library1	C	G	TCA	3	0	2	0	0	100
 sample1	library1	C	G	GCC	2	0	0	0	0	100
 sample1	library1	C	G	TCC	0	0	0	0	0	100
@@ -95,7 +95,7 @@ sample1	library1	C	T	CCG	0	1	0	1	0	100
 sample1	library1	C	T	GCG	2	2	3	2	0	100
 sample1	library1	C	T	ACC	1	0	0	0	0	100
 sample1	library1	C	T	TCG	3	0	2	0	0	100
-sample1	library1	C	T	ACG	3	0	2	0	0	100
+sample1	library1	C	T	ACG	3	0	3	0	0	100
 sample1	library1	C	T	TCA	3	0	2	0	0	100
 sample1	library1	C	T	GCC	2	0	0	0	0	100
 sample1	library1	C	T	TCC	0	2	0	2	0	100
@@ -110,7 +110,7 @@ sample1	library1	G	A	AGC	1	1	6	1	0	100
 sample1	library1	G	A	GGG	0	0	1	0	0	100
 sample1	library1	G	A	TGG	0	0	2	0	0	100
 sample1	library1	G	A	TGC	3	0	1	0	0	100
-sample1	library1	G	A	CGT	2	0	3	0	0	100
+sample1	library1	G	A	CGT	3	0	3	0	0	100
 sample1	library1	G	A	TGA	2	0	3	0	0	100
 sample1	library1	G	A	GGT	0	0	1	0	0	100
 sample1	library1	G	A	AGT	0	0	0	0	0	100
@@ -126,7 +126,7 @@ sample1	library1	G	C	AGC	1	0	6	0	0	100
 sample1	library1	G	C	GGG	0	0	1	0	0	100
 sample1	library1	G	C	TGG	0	0	2	0	0	100
 sample1	library1	G	C	TGC	3	0	1	0	0	100
-sample1	library1	G	C	CGT	2	0	3	0	0	100
+sample1	library1	G	C	CGT	3	0	3	0	0	100
 sample1	library1	G	C	TGA	2	0	3	0	0	100
 sample1	library1	G	C	GGT	0	0	1	0	0	100
 sample1	library1	G	C	AGT	0	0	0	0	0	100
@@ -142,7 +142,7 @@ sample1	library1	G	T	AGC	1	0	6	0	0	100
 sample1	library1	G	T	GGG	0	1	1	0	0.5	3.0103
 sample1	library1	G	T	TGG	0	0	2	0	0	100
 sample1	library1	G	T	TGC	3	2	1	0	0.333333	4.771213
-sample1	library1	G	T	CGT	2	1	3	0	0.166667	7.781513
+sample1	library1	G	T	CGT	3	1	3	0	0.142857	8.45098
 sample1	library1	G	T	TGA	2	1	3	0	0.166667	7.781513
 sample1	library1	G	T	GGT	0	0	1	0	0	100
 sample1	library1	G	T	AGT	0	1	0	0	1	-0
@@ -150,8 +150,8 @@ sample1	library1	G	T	TGT	0	0	4	0	0	100
 sample1	library1	G	T	AGG	0	1	0	0	1	-0
 sample1	library1	G	T	CGG	0	0	0	0	0	100
 sample1	library1	T	A	GTC	1	0	1	0	0	100
-sample1	library1	T	A	ATG	4	0	3	0	0	100
-sample1	library1	T	A	TTC	1	0	3	0	0	100
+sample1	library1	T	A	ATG	4	0	4	0	0	100
+sample1	library1	T	A	TTC	3	0	3	0	0	100
 sample1	library1	T	A	GTA	4	0	3	0	0	100
 sample1	library1	T	A	TTA	0	0	1	0	0	100
 sample1	library1	T	A	ATC	5	0	4	0	0	100
@@ -166,8 +166,8 @@ sample1	library1	T	A	ATA	1	0	2	0	0	100
 sample1	library1	T	A	ATT	1	0	0	0	0	100
 sample1	library1	T	A	CTT	4	0	3	0	0	100
 sample1	library1	T	C	GTC	1	0	1	0	0	100
-sample1	library1	T	C	ATG	4	0	3	0	0	100
-sample1	library1	T	C	TTC	1	0	3	0	0	100
+sample1	library1	T	C	ATG	4	0	4	0	0	100
+sample1	library1	T	C	TTC	3	0	3	0	0	100
 sample1	library1	T	C	GTA	4	0	3	0	0	100
 sample1	library1	T	C	TTA	0	0	1	0	0	100
 sample1	library1	T	C	ATC	5	0	4	0	0	100
@@ -182,8 +182,8 @@ sample1	library1	T	C	ATA	1	0	2	0	0	100
 sample1	library1	T	C	ATT	1	0	0	0	0	100
 sample1	library1	T	C	CTT	4	0	3	0	0	100
 sample1	library1	T	G	GTC	1	0	1	0	0	100
-sample1	library1	T	G	ATG	4	0	3	0	0	100
-sample1	library1	T	G	TTC	1	0	3	0	0	100
+sample1	library1	T	G	ATG	4	0	4	0	0	100
+sample1	library1	T	G	TTC	3	0	3	0	0	100
 sample1	library1	T	G	GTA	4	0	3	0	0	100
 sample1	library1	T	G	TTA	0	0	1	0	0	100
 sample1	library1	T	G	ATC	5	0	4	0	0	100
