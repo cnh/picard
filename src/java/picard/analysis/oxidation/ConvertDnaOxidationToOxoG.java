@@ -67,8 +67,7 @@ public class ConvertDnaOxidationToOxoG extends CommandLineProgram {
         for (final PreAdaptDetailMetrics padm : preAdaptDetailMetricsList) {
             oxogLibraries.add(padm.LIBRARY);
             // Remember that OxoG only reports on the 'C' contexts
-            // Also, exclude the summary row for each base (which is represented as a context of length 1)
-            if (padm.REF_BASE == 'C' && padm.CONTEXT.length() > 1) {
+            if (padm.REF_BASE == 'C') {
                 oxogContexts.add(padm.CONTEXT);
             }
         }
