@@ -1,4 +1,4 @@
-package picard.analysis.oxidation;
+package picard.analysis.artifacts;
 
 import htsjdk.samtools.AlignmentBlock;
 import htsjdk.samtools.SAMFileHeader;
@@ -17,31 +17,33 @@ import htsjdk.samtools.reference.ReferenceSequence;
 import htsjdk.samtools.util.IOUtil;
 import htsjdk.samtools.util.IntervalList;
 import htsjdk.samtools.util.IntervalListReferenceSequenceMask;
-import htsjdk.samtools.util.Log;
 import htsjdk.samtools.util.StringUtil;
+import picard.PicardException;
 import picard.analysis.SinglePassSamProgram;
 import picard.cmdline.CommandLineProgramProperties;
 import picard.cmdline.Option;
 import picard.cmdline.programgroups.Metrics;
 import picard.util.DbSnpBitSetUtil;
-import picard.analysis.oxidation.OxidationMetrics.*;
+import picard.analysis.artifacts.SequencingArtifactMetrics.*;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import htsjdk.samtools.SamPairUtil.PairOrientation;
+
+import static htsjdk.samtools.util.CodeUtil.nvl;
+
 /**
  * Quantify substitution errors caused by mismatched base pairings during various
- * stages of sample / library prep. These are most commonly caused by oxidation
- * (e.g. the 8-oxo-G error mode), but could have other causes as well.
+ * stages of sample / library prep.
  *
  * We measure two distinct error types - artifacts that are introduced before
- * the addition of the read1/read2 adapters ("pre adapt") and those that are
+ * the addition of the read1/read2 adapters ("pre adapter") and those that are
  * introduced after target selection ("bait bias"). For each of these, we provide
  * summary metrics as well as detail metrics broken down by reference context
  * (the ref bases surrounding the substitution event).
@@ -53,12 +55,12 @@ import java.util.Set;
  *
  */
 @CommandLineProgramProperties(
-        usage = CollectDnaOxidationMetrics.USAGE,
-        usageShort = CollectDnaOxidationMetrics.USAGE,
+        usage = CollectSequencingArtifactMetrics.USAGE,
+        usageShort = CollectSequencingArtifactMetrics.USAGE,
         programGroup = Metrics.class
 )
-public class CollectDnaOxidationMetrics extends SinglePassSamProgram {
-    static final String USAGE = "Collect metrics relating to various kinds of DNA oxidation damage.";
+public class CollectSequencingArtifactMetrics extends SinglePassSamProgram {
+    static final String USAGE = "Collect metrics to quantify single-base sequencing artifacts.";
 
     @Option(doc = "An optional list of intervals to restrict analysis to.", optional = true)
     public File INTERVALS;
@@ -72,11 +74,19 @@ public class CollectDnaOxidationMetrics extends SinglePassSamProgram {
     @Option(shortName = "MQ", doc = "The minimum mapping quality score for a base to be included in analysis.")
     public int MINIMUM_MAPPING_QUALITY = 30;
 
-    @Option(shortName = "MIN_INS", doc = "The minimum insert size for a read to be included in analysis. Set of 0 to allow unpaired reads.")
+    @Option(shortName = "MIN_INS", doc = "The minimum insert size for a read to be included in analysis.")
     public int MINIMUM_INSERT_SIZE = 60;
 
-    @Option(shortName = "MAX_INS", doc = "The maximum insert size for a read to be included in analysis. Set of 0 to allow unpaired reads.")
+    @Option(shortName = "MAX_INS", doc = "The maximum insert size for a read to be included in analysis. Set to 0 to have no maximum.")
     public int MAXIMUM_INSERT_SIZE = 600;
+
+    @Option(shortName = "UNPAIRED", doc = "Include unpaired reads. If set to true then all paired reads will be included as well - " +
+            "MINIMUM_INSERT_SIZE and MAXIMUM_INSERT_SIZE will be ignored.")
+    public boolean INCLUDE_UNPAIRED = false;
+
+    @Option(shortName = "ORIENTATION", doc = "The expected orientation of mate pairs.")
+    public PairOrientation PAIR_ORIENTATION = PairOrientation.FR;
+    // TODO how does this affect the calculation?
 
     @Option(doc = "When available, use original quality scores for filtering.")
     public boolean USE_OQ = true;
@@ -91,10 +101,8 @@ public class CollectDnaOxidationMetrics extends SinglePassSamProgram {
     private static final String UNKNOWN_LIBRARY = "UnknownLibrary";
     private static final String UNKNOWN_SAMPLE = "UnknownSample";
 
-    private final Log log = Log.getInstance(CollectDnaOxidationMetrics.class);
-
-    private File preAdaptSummaryOut;
-    private File preAdaptDetailsOut;
+    private File preAdapterSummaryOut;
+    private File preAdapterDetailsOut;
     private File baitBiasSummaryOut;
     private File baitBiasDetailsOut;
 
@@ -102,31 +110,44 @@ public class CollectDnaOxidationMetrics extends SinglePassSamProgram {
     private DbSnpBitSetUtil dbSnpMask;
     private SamRecordFilter recordFilter;
 
-    private Set<String> samples = new HashSet<String>();
-    private Set<String> libraries = new HashSet<String>();
-
-    final Map<String, ArtifactCounter> artifactCounters = new HashMap<String, ArtifactCounter>();
+    private final Set<String> samples = new HashSet<String>();
+    private final Set<String> libraries = new HashSet<String>();
+    private final Map<String, ArtifactCounter> artifactCounters = new HashMap<String, ArtifactCounter>();
 
     public static void main(final String[] args) {
-        new CollectDnaOxidationMetrics().instanceMainWithExit(args);
+        new CollectSequencingArtifactMetrics().instanceMainWithExit(args);
     }
 
     @Override
     protected String[] customCommandLineValidation() {
         final List<String> messages = new ArrayList<String>();
+
+        final int contextFullLength = 2 * CONTEXT_SIZE + 1;
         if (CONTEXT_SIZE < 0) messages.add("CONTEXT_SIZE cannot be negative");
+        for (final String context : CONTEXTS_TO_PRINT) {
+            if (context.length() != contextFullLength) {
+                messages.add("Context " + context + " is not the length implied by CONTEXT_SIZE: " + contextFullLength);
+            }
+        }
+
+        if (MINIMUM_INSERT_SIZE < 0) messages.add("MINIMUM_INSERT_SIZE cannot be negative");
+        if (MAXIMUM_INSERT_SIZE < 0) messages.add("MAXIMUM_INSERT_SIZE cannot be negative");
+        if (MAXIMUM_INSERT_SIZE > 0 && MAXIMUM_INSERT_SIZE < MINIMUM_INSERT_SIZE) {
+            messages.add("MAXIMUM_INSERT_SIZE cannot be less than MINIMUM_INSERT_SIZE unless set to 0");
+        }
+
         return messages.isEmpty() ? null : messages.toArray(new String[messages.size()]);
     }
 
     @Override
     protected void setup(final SAMFileHeader header, final File samFile) {
-        preAdaptSummaryOut = new File(OUTPUT + ".pre_adapt_summary_metrics");
-        preAdaptDetailsOut = new File(OUTPUT + ".pre_adapt_detail_metrics");
-        baitBiasSummaryOut = new File(OUTPUT + ".bait_bias_summary_metrics");
-        baitBiasDetailsOut = new File(OUTPUT + ".bait_bias_detail_metrics");
+        preAdapterSummaryOut = new File(OUTPUT + SequencingArtifactMetrics.PRE_ADAPTER_SUMMARY_EXT);
+        preAdapterDetailsOut = new File(OUTPUT + SequencingArtifactMetrics.PRE_ADAPTER_DETAILS_EXT);
+        baitBiasSummaryOut = new File(OUTPUT + SequencingArtifactMetrics.BAIT_BIAS_SUMMARY_EXT);
+        baitBiasDetailsOut = new File(OUTPUT + SequencingArtifactMetrics.BAIT_BIAS_DETAILS_EXT);
 
-        IOUtil.assertFileIsWritable(preAdaptSummaryOut);
-        IOUtil.assertFileIsWritable(preAdaptDetailsOut);
+        IOUtil.assertFileIsWritable(preAdapterSummaryOut);
+        IOUtil.assertFileIsWritable(preAdapterDetailsOut);
         IOUtil.assertFileIsWritable(baitBiasSummaryOut);
         IOUtil.assertFileIsWritable(baitBiasDetailsOut);
 
@@ -146,14 +167,17 @@ public class CollectDnaOxidationMetrics extends SinglePassSamProgram {
         }
 
         // set record-level filters
-        recordFilter = new AggregateFilter(Arrays.asList(
-                new FailsVendorReadQualityFilter(),
-                new NotPrimaryAlignmentFilter(),
-                new DuplicateReadFilter(),
-                new AlignedFilter(true), // discard unmapped reads
-                new MappingQualityFilter(MINIMUM_MAPPING_QUALITY),
-                new InsertSizeFilter(MINIMUM_INSERT_SIZE, MAXIMUM_INSERT_SIZE)
-        ));
+        final List<SamRecordFilter> filters = new ArrayList<SamRecordFilter>();
+        filters.add(new FailsVendorReadQualityFilter());
+        filters.add(new NotPrimaryAlignmentFilter());
+        filters.add(new DuplicateReadFilter());
+        filters.add(new AlignedFilter(true)); // discard unmapped reads
+        filters.add(new MappingQualityFilter(MINIMUM_MAPPING_QUALITY));
+        if (!INCLUDE_UNPAIRED) {
+            final int effectiveMaxInsertSize = (MAXIMUM_INSERT_SIZE == 0) ? Integer.MAX_VALUE : MAXIMUM_INSERT_SIZE;
+            filters.add(new InsertSizeFilter(MINIMUM_INSERT_SIZE, effectiveMaxInsertSize));
+        }
+        recordFilter = new AggregateFilter(filters);
 
         // set up the artifact counters
         final String sampleAlias = StringUtil.join(",", new ArrayList<String>(samples));
@@ -167,8 +191,12 @@ public class CollectDnaOxidationMetrics extends SinglePassSamProgram {
         // see if the whole read should be skipped
         if (recordFilter.filterOut(rec)) return;
 
-        final String library = nvl(rec.getReadGroup().getLibrary(), UNKNOWN_LIBRARY);
-        if (!libraries.contains(library)) return;
+        // check read group + library
+        final String library = (rec.getReadGroup() == null) ? UNKNOWN_LIBRARY : nvl(rec.getReadGroup().getLibrary(), UNKNOWN_LIBRARY);
+        if (!libraries.contains(library)) {
+            // should never happen if SAM is valid
+            throw new PicardException("Record contains library that is missing from header: " + library);
+        }
 
         // iterate over aligned positions
         for (final AlignmentBlock block : rec.getAlignmentBlocks()) {
@@ -190,9 +218,14 @@ public class CollectDnaOxidationMetrics extends SinglePassSamProgram {
                 // skip dbSNP sites
                 if (dbSnpMask != null && dbSnpMask.isDbSnpSite(ref.getName(), refPos)) continue;
 
-                // skip contexts with N bases, and those that clip the end of the reference
-                final String context = getContextOrNull(refPos, ref);
-                if (context == null || context.contains("N")) continue;
+                // skip the ends of the reference
+                final int contextStartIndex = refPos - CONTEXT_SIZE - 1;
+                final int contextFullLength = 2 * CONTEXT_SIZE + 1;
+                if (contextStartIndex + contextFullLength > ref.length()) continue;
+
+                // skip contexts with N bases
+                final String context = StringUtil.bytesToString(ref.getBases(), contextStartIndex, contextFullLength).toUpperCase();
+                if (context.contains("N")) continue;
 
                 // skip low BQ sites
                 if (failsBaseQualityCutoff(readPos, rec)) continue;
@@ -209,8 +242,8 @@ public class CollectDnaOxidationMetrics extends SinglePassSamProgram {
 
     @Override
     protected void finish() {
-        final MetricsFile<PreAdaptSummaryMetrics, Integer> preAdaptSummaryMetricsFile = getMetricsFile();
-        final MetricsFile<PreAdaptDetailMetrics, Integer> preAdaptDetailMetricsFile = getMetricsFile();
+        final MetricsFile<PreAdapterSummaryMetrics, Integer> preAdapterSummaryMetricsFile = getMetricsFile();
+        final MetricsFile<PreAdapterDetailMetrics, Integer> preAdapterDetailMetricsFile = getMetricsFile();
         final MetricsFile<BaitBiasSummaryMetrics, Integer> baitBiasSummaryMetricsFile = getMetricsFile();
         final MetricsFile<BaitBiasDetailMetrics, Integer> baitBiasDetailMetricsFile = getMetricsFile();
 
@@ -219,45 +252,30 @@ public class CollectDnaOxidationMetrics extends SinglePassSamProgram {
             counter.finish();
 
             // write metrics
-            preAdaptSummaryMetricsFile.addAllMetrics(counter.getPreAdaptSummaryMetrics());
+            preAdapterSummaryMetricsFile.addAllMetrics(counter.getPreAdapterSummaryMetrics());
             baitBiasSummaryMetricsFile.addAllMetrics(counter.getBaitBiasSummaryMetrics());
 
-            for (final PreAdaptDetailMetrics padm : counter.getPreAdaptDetailMetrics()) {
-                if (CONTEXTS_TO_PRINT.size() == 0 || CONTEXTS_TO_PRINT.contains(padm.CONTEXT)) {
-                    preAdaptDetailMetricsFile.addMetric(padm);
+            for (final PreAdapterDetailMetrics preAdapterDetailMetrics : counter.getPreAdapterDetailMetrics()) {
+                if (CONTEXTS_TO_PRINT.size() == 0 || CONTEXTS_TO_PRINT.contains(preAdapterDetailMetrics.CONTEXT)) {
+                    preAdapterDetailMetricsFile.addMetric(preAdapterDetailMetrics);
                 }
             }
-            for (final BaitBiasDetailMetrics bbdm : counter.getBaitBiasDetailMetrics()) {
-                if (CONTEXTS_TO_PRINT.size() == 0 || CONTEXTS_TO_PRINT.contains(bbdm.CONTEXT)) {
-                    baitBiasDetailMetricsFile.addMetric(bbdm);
+            for (final BaitBiasDetailMetrics baitBiasDetailMetrics : counter.getBaitBiasDetailMetrics()) {
+                if (CONTEXTS_TO_PRINT.size() == 0 || CONTEXTS_TO_PRINT.contains(baitBiasDetailMetrics.CONTEXT)) {
+                    baitBiasDetailMetricsFile.addMetric(baitBiasDetailMetrics);
                 }
             }
 
         }
 
-        preAdaptDetailMetricsFile.write(preAdaptDetailsOut);
-        preAdaptSummaryMetricsFile.write(preAdaptSummaryOut);
+        preAdapterDetailMetricsFile.write(preAdapterDetailsOut);
+        preAdapterSummaryMetricsFile.write(preAdapterSummaryOut);
         baitBiasDetailMetricsFile.write(baitBiasDetailsOut);
         baitBiasSummaryMetricsFile.write(baitBiasSummaryOut);
     }
 
     @Override
     protected boolean usesNoRefReads() { return false; }
-
-    /**
-     * Get the sequence context string (upper-case) at the specified position on the given reference.
-     * Return null if the context is clipped by the end of the sequence.
-     */
-    private String getContextOrNull(final int oneIndexedPos, final ReferenceSequence ref) {
-        final int contextStartIndex = oneIndexedPos - CONTEXT_SIZE - 1;
-        final int contextFullLength = 2 * CONTEXT_SIZE + 1;
-        try {
-            return StringUtil.bytesToString(ref.getBases(), contextStartIndex, contextFullLength).toUpperCase();
-        } catch (final IndexOutOfBoundsException e) {
-            // catching the exception is perhaps sloppier than checking the bounds manually, but is less susceptible to bugs...
-            return null;
-        }
-    }
 
     /**
      * Check if this read base fails the base quality cutoff.
@@ -270,11 +288,5 @@ public class CollectDnaOxidationMetrics extends SinglePassSamProgram {
             qual = rec.getBaseQualities()[oneIndexedPos - 1];
         }
         return (qual < MINIMUM_QUALITY_SCORE);
-    }
-
-    /** Mimic of Oracle's nvl() - returns the first value if not null, otherwise the second value. */
-    private <T> T nvl(final T value1, final T value2) {
-        if (value1 != null) return value1;
-        else return value2;
     }
 }

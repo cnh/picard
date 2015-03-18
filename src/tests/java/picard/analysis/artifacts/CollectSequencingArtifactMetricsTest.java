@@ -1,4 +1,4 @@
-package picard.analysis.oxidation;
+package picard.analysis.artifacts;
 
 import htsjdk.samtools.metrics.MetricsFile;
 import htsjdk.samtools.util.IOUtil;
@@ -13,9 +13,9 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-public class CollectDnaOxidationMetricsTest extends CommandLineProgramTest {
+public class CollectSequencingArtifactMetricsTest extends CommandLineProgramTest {
 
-    private static final File TEST_DIR = new File("testdata/picard/analysis/CollectDnaOxidationMetrics");
+    private static final File TEST_DIR = new File("testdata/picard/analysis/CollectSequencingArtifactMetrics");
     private static final File REFERENCE = new File(TEST_DIR, "test.fasta");
     private static final File TEST_SAM = new File(TEST_DIR, "test.sam");
     private static final File DB_SNP = new File(TEST_DIR, "test.dbsnp.vcf");
@@ -26,12 +26,12 @@ public class CollectDnaOxidationMetricsTest extends CommandLineProgramTest {
 
     @Override
     public String getCommandLineProgramName() {
-        return CollectDnaOxidationMetrics.class.getSimpleName();
+        return CollectSequencingArtifactMetrics.class.getSimpleName();
     }
 
     @BeforeTest
     public void setUp() throws IOException {
-        globalTempOutputDir = IOUtil.createTempDir("oxidationMetrics.", ".tmp");
+        globalTempOutputDir = IOUtil.createTempDir("artifactMetrics.", ".tmp");
     }
 
     @AfterTest
@@ -68,11 +68,15 @@ public class CollectDnaOxidationMetricsTest extends CommandLineProgramTest {
     }
 
     private void assertAllFilesEqual(final File expectedBase, final File actualBase) {
-        boolean equal = MetricsFile.areMetricsEqual(new File(expectedBase + ".pre_adapt_summary_metrics"), new File(actualBase + ".pre_adapt_summary_metrics"));
-        equal = equal && MetricsFile.areMetricsEqual(new File(expectedBase + ".bait_bias_summary_metrics"), new File(actualBase + ".bait_bias_summary_metrics"));
-        equal = equal && MetricsFile.areMetricsEqual(new File(expectedBase + ".pre_adapt_detail_metrics"), new File(actualBase + ".pre_adapt_detail_metrics"));
-        equal = equal && MetricsFile.areMetricsEqual(new File(expectedBase + ".bait_bias_detail_metrics"), new File(actualBase + ".bait_bias_detail_metrics"));
+        boolean equal = areMetricsEqual(expectedBase, actualBase, SequencingArtifactMetrics.PRE_ADAPTER_SUMMARY_EXT);
+        equal = equal && areMetricsEqual(expectedBase, actualBase, SequencingArtifactMetrics.PRE_ADAPTER_DETAILS_EXT);
+        equal = equal && areMetricsEqual(expectedBase, actualBase, SequencingArtifactMetrics.BAIT_BIAS_SUMMARY_EXT);
+        equal = equal && areMetricsEqual(expectedBase, actualBase, SequencingArtifactMetrics.BAIT_BIAS_DETAILS_EXT);
         Assert.assertTrue(equal);
+    }
+
+    private boolean areMetricsEqual(final File expectedBase, final File actualBase, final String extension) {
+        return MetricsFile.areMetricsEqual(new File(expectedBase + extension), new File(actualBase + extension));
     }
 
     @Test

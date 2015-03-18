@@ -1,4 +1,4 @@
-package picard.analysis.oxidation;
+package picard.analysis.artifacts;
 
 import htsjdk.samtools.metrics.MetricsFile;
 import htsjdk.samtools.util.IOUtil;
@@ -9,7 +9,7 @@ import picard.cmdline.Option;
 import picard.cmdline.StandardOptionDefinitions;
 import picard.cmdline.programgroups.Metrics;
 import picard.analysis.CollectOxoGMetrics.*;
-import picard.analysis.oxidation.OxidationMetrics.*;
+import picard.analysis.artifacts.SequencingArtifactMetrics.*;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -20,15 +20,15 @@ import java.util.Map;
 import java.util.Set;
 
 @CommandLineProgramProperties(
-        usage = ConvertDnaOxidationToOxoG.USAGE,
-        usageShort = ConvertDnaOxidationToOxoG.USAGE,
+        usage = ConvertSequencingArtifactToOxoG.USAGE,
+        usageShort = ConvertSequencingArtifactToOxoG.USAGE,
         programGroup = Metrics.class
 )
-public class ConvertDnaOxidationToOxoG extends CommandLineProgram {
-    static final String USAGE = "Extract OxoG metrics format from generalized DNA oxidation metrics.";
+public class ConvertSequencingArtifactToOxoG extends CommandLineProgram {
+    static final String USAGE = "Extract OxoG metrics format from generalized artifact metrics.";
 
     @Option(shortName = StandardOptionDefinitions.INPUT_SHORT_NAME,
-            doc = "Basename for input DNA oxidation metrics")
+            doc = "Basename for input artifact metrics")
     public File INPUT_BASE;
 
     @Option(shortName = StandardOptionDefinitions.OUTPUT_SHORT_NAME,
@@ -38,22 +38,22 @@ public class ConvertDnaOxidationToOxoG extends CommandLineProgram {
 
     // Stock main method
     public static void main(final String[] args) {
-        new ConvertDnaOxidationToOxoG().instanceMainWithExit(args);
+        new ConvertSequencingArtifactToOxoG().instanceMainWithExit(args);
     }
 
     @Override
     protected int doWork() {
         if (OUTPUT_BASE == null) { OUTPUT_BASE = INPUT_BASE; }
 
-        final File PRE_ADAPT_IN = new File(INPUT_BASE + ".pre_adapt_detail_metrics");
-        final File BAIT_BIAS_IN = new File(INPUT_BASE + ".bait_bias_detail_metrics");
+        final File PRE_ADAPTER_IN = new File(INPUT_BASE + SequencingArtifactMetrics.PRE_ADAPTER_DETAILS_EXT);
+        final File BAIT_BIAS_IN = new File(INPUT_BASE + SequencingArtifactMetrics.BAIT_BIAS_DETAILS_EXT);
         final File OXOG_OUT = new File(OUTPUT_BASE + ".oxog_metrics");
 
-        IOUtil.assertFileIsReadable(PRE_ADAPT_IN);
+        IOUtil.assertFileIsReadable(PRE_ADAPTER_IN);
         IOUtil.assertFileIsReadable(BAIT_BIAS_IN);
         IOUtil.assertFileIsWritable(OXOG_OUT);
 
-        final List<PreAdaptDetailMetrics> preAdaptDetailMetricsList = (List<PreAdaptDetailMetrics>) MetricsFile.readBeans(PRE_ADAPT_IN);
+        final List<PreAdapterDetailMetrics> preAdapterDetailMetricsList = (List<PreAdapterDetailMetrics>) MetricsFile.readBeans(PRE_ADAPTER_IN);
         final List<BaitBiasDetailMetrics> baitBiasDetailMetricsList = (List<BaitBiasDetailMetrics>) MetricsFile.readBeans(BAIT_BIAS_IN);
 
         // TODO should we validate that the two inputs match up as expected?
@@ -61,14 +61,14 @@ public class ConvertDnaOxidationToOxoG extends CommandLineProgram {
         /**
          * Determine output fields. Just copy these from the input for now.
          */
-        final String oxogSampleAlias = preAdaptDetailMetricsList.get(0).SAMPLE_ALIAS;
+        final String oxogSampleAlias = preAdapterDetailMetricsList.get(0).SAMPLE_ALIAS;
         final Set<String> oxogLibraries = new HashSet<String>();
         final Set<String> oxogContexts = new HashSet<String>();
-        for (final PreAdaptDetailMetrics padm : preAdaptDetailMetricsList) {
-            oxogLibraries.add(padm.LIBRARY);
+        for (final PreAdapterDetailMetrics preAdapter : preAdapterDetailMetricsList) {
+            oxogLibraries.add(preAdapter.LIBRARY);
             // Remember that OxoG only reports on the 'C' contexts
-            if (padm.REF_BASE == 'C') {
-                oxogContexts.add(padm.CONTEXT);
+            if (preAdapter.REF_BASE == 'C') {
+                oxogContexts.add(preAdapter.CONTEXT);
             }
         }
 
@@ -77,22 +77,24 @@ public class ConvertDnaOxidationToOxoG extends CommandLineProgram {
          * Remember, we only care about two transitions - C>A and G>T! Thus, for each context we
          * will only store one metric.
          */
-        final Map<String, Map<String, PreAdaptDetailMetrics>> preAdaptDetailMetricsMap = new HashMap<String, Map<String, PreAdaptDetailMetrics>>();
+        final Map<String, Map<String, PreAdapterDetailMetrics>> preAdapterDetailMetricsMap = new HashMap<String, Map<String, PreAdapterDetailMetrics>>();
         final Map<String, Map<String, BaitBiasDetailMetrics>> baitBiasDetailMetricsMap = new HashMap<String, Map<String, BaitBiasDetailMetrics>>();
         for (final String library : oxogLibraries) {
-            final Map<String, PreAdaptDetailMetrics> contextsToPadm = new HashMap<String, PreAdaptDetailMetrics>();
-            final Map<String, BaitBiasDetailMetrics> contextsToBbdm = new HashMap<String, BaitBiasDetailMetrics>();
-            preAdaptDetailMetricsMap.put(library, contextsToPadm);
-            baitBiasDetailMetricsMap.put(library, contextsToBbdm);
+            final Map<String, PreAdapterDetailMetrics> contextsToPreAdapter = new HashMap<String, PreAdapterDetailMetrics>();
+            final Map<String, BaitBiasDetailMetrics> contextsToBaitBias = new HashMap<String, BaitBiasDetailMetrics>();
+            preAdapterDetailMetricsMap.put(library, contextsToPreAdapter);
+            baitBiasDetailMetricsMap.put(library, contextsToBaitBias);
         }
-        for (final PreAdaptDetailMetrics padm : preAdaptDetailMetricsList) {
-            if (isOxoG(padm)) {
-                preAdaptDetailMetricsMap.get(padm.LIBRARY).put(padm.CONTEXT, padm);
+        for (final PreAdapterDetailMetrics preAdapter : preAdapterDetailMetricsList) {
+            final Transition transition = Transition.transitionOf(preAdapter.REF_BASE, preAdapter.ALT_BASE);
+            if (isOxoG(transition)) {
+                preAdapterDetailMetricsMap.get(preAdapter.LIBRARY).put(preAdapter.CONTEXT, preAdapter);
             }
         }
-        for (final BaitBiasDetailMetrics bbdm : baitBiasDetailMetricsList) {
-            if (isOxoG(bbdm)) {
-                baitBiasDetailMetricsMap.get(bbdm.LIBRARY).put(bbdm.CONTEXT, bbdm);
+        for (final BaitBiasDetailMetrics baitBias : baitBiasDetailMetricsList) {
+            final Transition transition = Transition.transitionOf(baitBias.REF_BASE, baitBias.ALT_BASE);
+            if (isOxoG(transition)) {
+                baitBiasDetailMetricsMap.get(baitBias.LIBRARY).put(baitBias.CONTEXT, baitBias);
             }
         }
 
@@ -122,29 +124,29 @@ public class ConvertDnaOxidationToOxoG extends CommandLineProgram {
                  *    input.
                  */
 
-                final PreAdaptDetailMetrics padm = preAdaptDetailMetricsMap.get(library).get(SequenceUtil.reverseComplement(context));
-                final BaitBiasDetailMetrics bbdmFwd = baitBiasDetailMetricsMap.get(library).get(context);
-                final BaitBiasDetailMetrics bbdmRev = baitBiasDetailMetricsMap.get(library).get(SequenceUtil.reverseComplement(context));
+                final PreAdapterDetailMetrics preAdapter = preAdapterDetailMetricsMap.get(library).get(SequenceUtil.reverseComplement(context));
+                final BaitBiasDetailMetrics baitBiasFwd = baitBiasDetailMetricsMap.get(library).get(context);
+                final BaitBiasDetailMetrics baitBiasRev = baitBiasDetailMetricsMap.get(library).get(SequenceUtil.reverseComplement(context));
 
-                // extract fields from PreAdaptDetailMetrics
-                m.TOTAL_BASES = padm.PRO_REF_BASES + padm.PRO_ALT_BASES + padm.CON_REF_BASES + padm.CON_ALT_BASES;
-                m.REF_TOTAL_BASES = padm.PRO_REF_BASES + padm.CON_REF_BASES;
-                m.REF_NONOXO_BASES = padm.CON_REF_BASES;
-                m.REF_OXO_BASES = padm.PRO_REF_BASES;
-                m.ALT_NONOXO_BASES = padm.CON_ALT_BASES;
-                m.ALT_OXO_BASES = padm.PRO_ALT_BASES;
-                m.OXIDATION_ERROR_RATE = padm.ERROR_RATE;
-                m.OXIDATION_Q = padm.QSCORE;
+                // extract fields from PreAdapterDetailMetrics
+                m.TOTAL_BASES = preAdapter.PRO_REF_BASES + preAdapter.PRO_ALT_BASES + preAdapter.CON_REF_BASES + preAdapter.CON_ALT_BASES;
+                m.REF_TOTAL_BASES = preAdapter.PRO_REF_BASES + preAdapter.CON_REF_BASES;
+                m.REF_NONOXO_BASES = preAdapter.CON_REF_BASES;
+                m.REF_OXO_BASES = preAdapter.PRO_REF_BASES;
+                m.ALT_NONOXO_BASES = preAdapter.CON_ALT_BASES;
+                m.ALT_OXO_BASES = preAdapter.PRO_ALT_BASES;
+                m.OXIDATION_ERROR_RATE = preAdapter.ERROR_RATE;
+                m.OXIDATION_Q = preAdapter.QSCORE;
 
                 // extract fields from BaitBiasDetailMetrics
-                m.C_REF_REF_BASES = bbdmFwd.FWD_CXT_REF_BASES;
-                m.G_REF_REF_BASES = bbdmFwd.REV_CXT_REF_BASES;
-                m.C_REF_ALT_BASES = bbdmFwd.FWD_CXT_ALT_BASES;
-                m.G_REF_ALT_BASES = bbdmFwd.REV_CXT_ALT_BASES;
-                m.C_REF_OXO_ERROR_RATE = bbdmFwd.ERROR_RATE;
-                m.C_REF_OXO_Q = bbdmFwd.QSCORE;
-                m.G_REF_OXO_ERROR_RATE = bbdmRev.ERROR_RATE;
-                m.G_REF_OXO_Q = bbdmRev.QSCORE;
+                m.C_REF_REF_BASES = baitBiasFwd.FWD_CXT_REF_BASES;
+                m.G_REF_REF_BASES = baitBiasFwd.REV_CXT_REF_BASES;
+                m.C_REF_ALT_BASES = baitBiasFwd.FWD_CXT_ALT_BASES;
+                m.G_REF_ALT_BASES = baitBiasFwd.REV_CXT_ALT_BASES;
+                m.C_REF_OXO_ERROR_RATE = baitBiasFwd.ERROR_RATE;
+                m.C_REF_OXO_Q = baitBiasFwd.QSCORE;
+                m.G_REF_OXO_ERROR_RATE = baitBiasRev.ERROR_RATE;
+                m.G_REF_OXO_Q = baitBiasRev.QSCORE;
 
                 // add it
                 oxogMetrics.add(m);
@@ -160,12 +162,7 @@ public class ConvertDnaOxidationToOxoG extends CommandLineProgram {
         return 0;
     }
 
-    /**
-     * Convenience method for determining whether a metric is related to the OxoG artifact.
-     */
-    private boolean isOxoG(final DnaOxidationMetrics m) {
-        final boolean cToA = (m.REF_BASE == 'C') && (m.ALT_BASE == 'A');
-        final boolean gToT = (m.REF_BASE == 'G') && (m.ALT_BASE == 'T');
-        return cToA || gToT;
+    private boolean isOxoG(final Transition t) {
+        return t.equals(Transition.CtoA) || t.equals(Transition.GtoT);
     }
 }

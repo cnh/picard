@@ -7,6 +7,7 @@ import htsjdk.samtools.SamReaderFactory;
 import htsjdk.samtools.filter.DuplicateReadFilter;
 import htsjdk.samtools.filter.InsertSizeFilter;
 import htsjdk.samtools.filter.NotPrimaryAlignmentFilter;
+import htsjdk.samtools.filter.SamRecordFilter;
 import htsjdk.samtools.metrics.MetricBase;
 import htsjdk.samtools.metrics.MetricsFile;
 import htsjdk.samtools.reference.ReferenceSequenceFileWalker;
@@ -32,6 +33,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import static htsjdk.samtools.util.CodeUtil.nvl;
 import static htsjdk.samtools.util.SequenceUtil.generateAllKmers;
 import static java.lang.Math.log10;
 
@@ -180,13 +182,13 @@ public class CollectOxoGMetrics extends CommandLineProgram {
             }
         }
 
-        return messages.isEmpty() ? null : messages.toArray(new String[messages.size()]);
-    }
+        if (MINIMUM_INSERT_SIZE < 0) messages.add("MINIMUM_INSERT_SIZE cannot be negative");
+        if (MAXIMUM_INSERT_SIZE < 0) messages.add("MAXIMUM_INSERT_SIZE cannot be negative");
+        if (MAXIMUM_INSERT_SIZE < MINIMUM_INSERT_SIZE) {
+            messages.add("MAXIMUM_INSERT_SIZE cannot be less than MINIMUM_INSERT_SIZE");
+        }
 
-    /** Mimic of Oracle's nvl() - returns the first value if not null, otherwise the second value. */
-    private final <T> T nvl(final T value1, final T value2) {
-        if (value1 != null) return value1;
-        else return value2;
+        return messages.isEmpty() ? null : messages.toArray(new String[messages.size()]);
     }
 
     @Override
@@ -231,11 +233,14 @@ public class CollectOxoGMetrics extends CommandLineProgram {
         }
         iterator.setEmitUncoveredLoci(false);
         iterator.setMappingQualityScoreCutoff(MINIMUM_MAPPING_QUALITY);
-        iterator.setSamFilters(Arrays.asList(
-                new NotPrimaryAlignmentFilter(),
-                new DuplicateReadFilter(),
-                new InsertSizeFilter(MINIMUM_INSERT_SIZE, MAXIMUM_INSERT_SIZE)
-        ));
+
+        final ArrayList<SamRecordFilter> filters = new ArrayList<SamRecordFilter>();
+        filters.add(new NotPrimaryAlignmentFilter());
+        filters.add(new DuplicateReadFilter());
+        if (MINIMUM_INSERT_SIZE > 0 || MAXIMUM_INSERT_SIZE > 0) {
+            filters.add(new InsertSizeFilter(MINIMUM_INSERT_SIZE, MAXIMUM_INSERT_SIZE));
+        }
+        iterator.setSamFilters(filters);
 
         log.info("Starting iteration.");
         long nextLogTime = 0;

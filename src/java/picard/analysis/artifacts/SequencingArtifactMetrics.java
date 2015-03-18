@@ -1,25 +1,15 @@
-package picard.analysis.oxidation;
+package picard.analysis.artifacts;
 
 import htsjdk.samtools.metrics.MetricBase;
+import htsjdk.samtools.util.QualityUtil;
 
-import static java.lang.Math.log10;
+public class SequencingArtifactMetrics {
+    public static final String PRE_ADAPTER_SUMMARY_EXT = ".pre_adapter_summary_metrics";
+    public static final String PRE_ADAPTER_DETAILS_EXT = ".pre_adapter_detail_metrics";
+    public static final String BAIT_BIAS_SUMMARY_EXT = ".bait_bias_summary_metrics";
+    public static final String BAIT_BIAS_DETAILS_EXT = ".bait_bias_detail_metrics";
 
-public class OxidationMetrics {
     private static final double MIN_ERROR = 1e-10; // minimum error rate to report
-
-    /**
-     * Base class for all oxidation metrics. Each library in an aggregation is analyzed separately.
-     */
-    public static abstract class DnaOxidationMetrics extends MetricBase {
-        /** The name of the sample being assayed. */
-        public String SAMPLE_ALIAS;
-        /** The name of the library being assayed. */
-        public String LIBRARY;
-        /** The original base on the reference strand. */
-        public char REF_BASE;
-        /** The alternative base that is called as a result of DNA damage. */
-        public char ALT_BASE;
-    }
 
     /**
      * Summary analysis of a single pre-adapter artifact.
@@ -40,7 +30,16 @@ public class OxidationMetrics {
      * their contributions will cancel out in the calculation.
      *
      */
-    public static class PreAdaptSummaryMetrics extends DnaOxidationMetrics {
+    public static class PreAdapterSummaryMetrics extends MetricBase {
+        /** The name of the sample being assayed. */
+        public String SAMPLE_ALIAS;
+        /** The name of the library being assayed. */
+        public String LIBRARY;
+        /** The (upper-case) original base on the reference strand. */
+        public char REF_BASE;
+        /** The (upper-case) alternative base that is called as a result of DNA damage. */
+        public char ALT_BASE;
+
         /**
          * The total Phred-scaled Q-score for this artifact. A lower Q-score
          * means a higher probability that a REF_BASE:ALT_BASE observation
@@ -89,7 +88,16 @@ public class OxidationMetrics {
      * relative to sites with the flip (C positive / G negative). This is known as the "G-Ref" artifact.
      *
      */
-    public static class BaitBiasSummaryMetrics extends DnaOxidationMetrics {
+    public static class BaitBiasSummaryMetrics extends MetricBase {
+        /** The name of the sample being assayed. */
+        public String SAMPLE_ALIAS;
+        /** The name of the library being assayed. */
+        public String LIBRARY;
+        /** The (upper-case) original base on the reference strand. */
+        public char REF_BASE;
+        /** The (upper-case) alternative base that is called as a result of DNA damage. */
+        public char ALT_BASE;
+
         /**
          * The total Phred-scaled Q-score for this artifact. A lower Q-score
          * means a higher probability that a REF_BASE:ALT_BASE observation
@@ -129,7 +137,16 @@ public class OxidationMetrics {
     /**
      * Pre-adapter artifacts broken down by context.
      */
-    public static class PreAdaptDetailMetrics extends DnaOxidationMetrics {
+    public static class PreAdapterDetailMetrics extends MetricBase {
+        /** The name of the sample being assayed. */
+        public String SAMPLE_ALIAS;
+        /** The name of the library being assayed. */
+        public String LIBRARY;
+        /** The (upper-case) original base on the reference strand. */
+        public char REF_BASE;
+        /** The (upper-case) alternative base that is called as a result of DNA damage. */
+        public char ALT_BASE;
+
         /** The sequence context to which the analysis is constrained. */
         public String CONTEXT;
 
@@ -160,14 +177,23 @@ public class OxidationMetrics {
                 final double rawErrorRate = (this.PRO_ALT_BASES - this.CON_ALT_BASES) / (double) totalBases;
                 this.ERROR_RATE = Math.max(MIN_ERROR, rawErrorRate);
             }
-            this.QSCORE = -10 * log10(this.ERROR_RATE);
+            this.QSCORE = QualityUtil.getPhredScoreFromErrorProbability(this.ERROR_RATE);
         }
     }
 
     /**
      * Bait bias artifacts broken down by context.
      */
-    public static class BaitBiasDetailMetrics extends DnaOxidationMetrics {
+    public static class BaitBiasDetailMetrics extends MetricBase {
+        /** The name of the sample being assayed. */
+        public String SAMPLE_ALIAS;
+        /** The name of the library being assayed. */
+        public String LIBRARY;
+        /** The (upper-case) original base on the reference strand. */
+        public char REF_BASE;
+        /** The (upper-case) alternative base that is called as a result of DNA damage. */
+        public char ALT_BASE;
+
         /** The sequence context to which the analysis is constrained. */
         public String CONTEXT;
 
@@ -211,7 +237,7 @@ public class OxidationMetrics {
             }
 
             this.ERROR_RATE = Math.max(MIN_ERROR, this.FWD_ERROR_RATE - this.REV_ERROR_RATE);
-            this.QSCORE = -10 * log10(this.ERROR_RATE);
+            this.QSCORE = QualityUtil.getPhredScoreFromErrorProbability(this.ERROR_RATE);
         }
     }
 
@@ -219,12 +245,12 @@ public class OxidationMetrics {
      * Little container for passing around a detail metrics pair.
      */
     static class DetailPair {
-        final PreAdaptDetailMetrics padm;
-        final BaitBiasDetailMetrics bbdm;
+        final PreAdapterDetailMetrics preAdapterMetrics;
+        final BaitBiasDetailMetrics baitBiasMetrics;
 
-        DetailPair(final PreAdaptDetailMetrics padm, final BaitBiasDetailMetrics bbdm) {
-            this.padm = padm;
-            this.bbdm = bbdm;
+        DetailPair(final PreAdapterDetailMetrics preAdapterMetrics, final BaitBiasDetailMetrics baitBiasMetrics) {
+            this.preAdapterMetrics = preAdapterMetrics;
+            this.baitBiasMetrics = baitBiasMetrics;
         }
     }
 
@@ -232,12 +258,12 @@ public class OxidationMetrics {
      * Little container for passing around a summary metrics pair.
      */
     static class SummaryPair {
-        final PreAdaptSummaryMetrics pasm;
-        final BaitBiasSummaryMetrics bbsm;
+        final PreAdapterSummaryMetrics preAdapterMetrics;
+        final BaitBiasSummaryMetrics baitBiasMetrics;
 
-        SummaryPair(final PreAdaptSummaryMetrics pasm, final BaitBiasSummaryMetrics bbsm) {
-            this.pasm = pasm;
-            this.bbsm = bbsm;
+        SummaryPair(final PreAdapterSummaryMetrics preAdapterMetrics, final BaitBiasSummaryMetrics baitBiasMetrics) {
+            this.preAdapterMetrics = preAdapterMetrics;
+            this.baitBiasMetrics = baitBiasMetrics;
         }
     }
 }
